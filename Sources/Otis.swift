@@ -1,0 +1,86 @@
+// Otis tokens for macOS. Same values as otis.css. Light and dark resolve
+// through NSColor's dynamic provider, so views follow the system appearance
+// unless the app pins one.
+//
+// Fonts: bundle Geist and Geist Mono (SIL OFL) and register them in Info.plist
+// under "Fonts provided by application". Otis overrides the system look on
+// purpose; do not fall back to SF for body text.
+
+import SwiftUI
+import AppKit
+
+enum Otis {
+
+    // MARK: Color
+
+    private static func dynamic(light: String, dark: String) -> Color {
+        Color(NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor(hex: isDark ? dark : light)
+        })
+    }
+
+    static let paper   = dynamic(light: "#faf9f5", dark: "#1a1814")
+    static let ink     = dynamic(light: "#1a1814", dark: "#f0eee5")
+    static let ink2    = dynamic(light: "#6b6862", dark: "#a09e96")
+    static let ink3    = dynamic(light: "#a09e96", dark: "#6b6862")
+    static let line    = dynamic(light: "#e6e3db", dark: "#2a2820")
+    static let surface = dynamic(light: "#f3f1eb", dark: "#232017")
+
+    static let accent       = Color(NSColor(hex: "#ff7a3a"))
+    static let accentStrong = Color(NSColor(hex: "#f5610f"))
+    /// Orange for text. The accent fails contrast on paper; this sibling passes.
+    static let accentText   = dynamic(light: "#c2440a", dark: "#ff7a3a")
+    static let accentSoft   = accent.opacity(0.14)
+
+    static let ok   = dynamic(light: "#4f8a5b", dark: "#6fae7c")
+    static let warn = dynamic(light: "#b8862b", dark: "#d6a05a")
+    static let bad  = dynamic(light: "#b5443a", dark: "#d46a5f")
+
+    // MARK: Type
+
+    static func sans(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .custom("Geist", size: size).weight(weight)
+    }
+    static func mono(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .custom("Geist Mono", size: size).weight(weight).monospacedDigit()
+    }
+
+    static let display = sans(56, weight: .semibold)
+    static let h1      = sans(40, weight: .semibold)
+    static let h2      = sans(24, weight: .semibold)
+    static let reading = sans(17)
+    static let ui      = sans(15)
+    static let working = sans(13)
+    static let label   = mono(11)          // uppercase it at the call site
+    static let stat    = mono(24, weight: .medium)
+
+    // MARK: Space and shape
+
+    static let radius: CGFloat = 6
+    static let radiusMd: CGFloat = 8
+    static let radiusLg: CGFloat = 10
+    static let hairline: CGFloat = 1
+    static let popoverWidth: CGFloat = 320
+
+    // MARK: Motion
+
+    static let fast  = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.15)
+    static let press = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.06)
+    static let bar   = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.40)
+}
+
+extension NSColor {
+    convenience init(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.hasPrefix("#") { s.removeFirst() }
+        var v: UInt64 = 0
+        Scanner(string: s).scanHexInt64(&v)
+        self.init(
+            srgbRed: CGFloat((v >> 16) & 0xff) / 255,
+            green:   CGFloat((v >> 8) & 0xff) / 255,
+            blue:    CGFloat(v & 0xff) / 255,
+            alpha: 1
+        )
+    }
+}

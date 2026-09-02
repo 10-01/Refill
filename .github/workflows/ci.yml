@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-package:
+    name: Build, test, and package
+    runs-on: macos-15
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run tests and create the universal package
+        run: make lint package
+
+      - name: Verify deployment target and architectures
+        env:
+          REFILL_EXPECT_UNIVERSAL: "1"
+        run: ./Scripts/verify-build.sh
