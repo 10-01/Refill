@@ -55,9 +55,8 @@ struct PopoverView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            hairline
             ScrollView(.vertical, showsIndicators: true) {
-                LazyVStack(spacing: 0) {
+                VStack(spacing: 8) {
                     ForEach(Provider.allCases) { provider in
                         ProviderSection(
                             provider: provider,
@@ -67,28 +66,22 @@ struct PopoverView: View {
                         )
                     }
                 }
+                .padding(.horizontal, 10)
+                .padding(.bottom, 8)
             }
-            hairline
             footer
         }
         .frame(width: Otis.popoverWidth, height: 620)
-        .background(Otis.paper)
+        .background(Otis.chrome)
         .foregroundStyle(Otis.ink)
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Otis.accent)
-                .frame(width: 9, height: 9)
-                .accessibilityHidden(true)
+        HStack(alignment: .firstTextBaseline) {
             Text("Refill")
-                .font(Otis.sans(13, weight: .semibold))
+                .font(Otis.sans(15, weight: .semibold))
             Spacer()
             if model.isRefreshing {
-                Circle()
-                    .fill(Otis.accent)
-                    .frame(width: 6, height: 6)
                 Text("refreshing")
                     .font(Otis.mono(11))
                     .foregroundStyle(Otis.ink2)
@@ -98,30 +91,30 @@ struct PopoverView: View {
                     .foregroundStyle(Otis.ink2)
             }
         }
-        .padding(.horizontal, 14)
-        .frame(height: 42)
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 10)
+        .background(Otis.chrome)
     }
 
     private var footer: some View {
         HStack {
-            Button("Settings ⌘,") { openSettings() }
+            Button("Settings") { openSettings() }
                 .keyboardShortcut(",", modifiers: .command)
             Spacer()
-            Button(model.isRefreshing ? "Refreshing" : "Refresh ⌘R") { model.refreshAll() }
+            Button(model.isRefreshing ? "Refreshing" : "Refresh") { model.refreshAll() }
                 .disabled(model.isRefreshing)
                 .keyboardShortcut("r", modifiers: .command)
             Spacer()
             Button("Quit") { quit() }
         }
         .buttonStyle(OtisFooterButtonStyle())
-        .font(Otis.mono(10))
-        .padding(.horizontal, 14)
-        .frame(height: 34)
+        .font(Otis.mono(11))
+        .padding(.horizontal, 18)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
         .foregroundStyle(Otis.ink2)
-    }
-
-    private var hairline: some View {
-        Rectangle().fill(Otis.line).frame(height: Otis.hairline)
+        .background(Otis.chrome)
     }
 }
 
@@ -132,34 +125,23 @@ struct ProviderSection: View {
     let reauthenticate: (AccountProfile) -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                ProviderLogoView(provider: provider)
-                Text(provider.title.uppercased())
-                    .font(Otis.label)
-                    .foregroundStyle(Otis.ink2)
-                    .tracking(0.7)
-                Spacer()
-                Text("\(accounts.count) \(accounts.count == 1 ? "account" : "accounts")")
-                    .font(Otis.mono(11))
-                    .foregroundStyle(Otis.ink2)
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 28)
-            .background(Otis.surface)
+        VStack(alignment: .leading, spacing: 0) {
+            Text(provider.title)
+                .font(Otis.sans(11, weight: .semibold))
+                .foregroundStyle(Otis.ink2)
+                .padding(.bottom, 8)
 
             if accounts.isEmpty {
                 Text("No accounts found")
                     .font(Otis.working)
                     .foregroundStyle(Otis.ink2)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 6)
             } else {
                 ForEach(Array(accounts.enumerated()), id: \.element.id) { index, profile in
                     if index > 0 {
                         Rectangle().fill(Otis.line).frame(height: Otis.hairline)
-                            .padding(.leading, 14)
+                            .padding(.vertical, 10)
                     }
                     AccountUsageView(
                         profile: profile,
@@ -168,8 +150,16 @@ struct ProviderSection: View {
                     )
                 }
             }
-            Rectangle().fill(Otis.line).frame(height: Otis.hairline)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Otis.sheet)
+        .clipShape(RoundedRectangle(cornerRadius: Otis.radiusMd))
+        .overlay(
+            RoundedRectangle(cornerRadius: Otis.radiusMd)
+                .stroke(Otis.line, lineWidth: Otis.hairline)
+        )
     }
 }
 
@@ -214,15 +204,15 @@ struct AccountUsageView: View {
     let reauthenticate: (AccountProfile) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 7) {
                 Text(profile.name)
-                    .font(Otis.sans(13, weight: .medium))
+                    .font(Otis.sans(13, weight: .semibold))
                     .lineLimit(1)
                 Spacer()
                 if state?.isStale == true {
-                    Text("STALE")
-                        .font(Otis.label)
+                    Text("Stale")
+                        .font(Otis.mono(11))
                         .foregroundStyle(Otis.accentText)
                 }
                 if state?.requiresAuthentication == true {
@@ -251,8 +241,6 @@ struct AccountUsageView: View {
                 .frame(height: 18)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
     }
 
     private var stateLoading: Bool {
@@ -266,36 +254,48 @@ struct UsageWindowView: View {
     let window: UsageWindow
     let stale: Bool
 
+    private var attention: Bool { !stale && window.isTight }
+
     var body: some View {
         HStack(spacing: 8) {
-            Text(window.label.uppercased())
-                .font(Otis.label)
+            Text(window.label)
+                .font(Otis.sans(12))
                 .foregroundStyle(Otis.ink2)
-                .frame(width: 66, alignment: .leading)
+                .frame(width: 62, alignment: .leading)
+                .lineLimit(1)
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Otis.surface)
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(stale ? Otis.ink2 : (window.isTight ? Otis.ink : Otis.accent))
-                        .frame(width: window.remainingPercent == 0
-                            ? 0
-                            : max(2, proxy.size.width * CGFloat(window.remainingPercent) / 100))
+                    Capsule()
+                        .fill(Otis.line)
+                    Capsule()
+                        .fill(Otis.meterFill(attention: attention, stale: stale))
+                        .frame(width: max(3, proxy.size.width * CGFloat(window.remainingPercent) / 100))
                         .animation(Otis.bar, value: window.remainingPercent)
                 }
             }
-            .frame(height: 6)
+            .frame(height: 4)
 
-            Text("\(UsageFormat.percent(window.remainingPercent)) left · \(UsageFormat.reset(window.resetsAt).replacingOccurrences(of: "reset ", with: ""))")
-                .font(Otis.mono(11, weight: window.isTight ? .medium : .regular))
-                .foregroundStyle(window.isTight ? Otis.accentText : Otis.ink)
-                .frame(width: 130, alignment: .trailing)
+            Text(UsageFormat.percent(window.remainingPercent))
+                .font(Otis.mono(11, weight: attention ? .medium : .regular))
+                .foregroundStyle(Otis.meterText(attention: attention, stale: stale))
+                .frame(width: 36, alignment: .trailing)
+                .lineLimit(1)
+
+            Text(resetLabel)
+                .font(Otis.mono(11))
+                .foregroundStyle(attention ? Otis.accentText : Otis.ink2)
+                .frame(width: 50, alignment: .trailing)
                 .lineLimit(1)
         }
-        .frame(height: 15)
+        .frame(height: 18)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(window.label), \(UsageFormat.percent(window.remainingPercent)) left, \(UsageFormat.reset(window.resetsAt))")
+    }
+
+    private var resetLabel: String {
+        let value = UsageFormat.reset(window.resetsAt).replacingOccurrences(of: "reset ", with: "")
+        return value == "unknown" ? "" : value
     }
 }
 

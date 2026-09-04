@@ -109,7 +109,7 @@ The package script builds both architectures, enables hardened runtime, verifies
 
 ## Design
 
-Refill uses the [Otis design system](https://github.com/10-01/otis): warm paper and ink colors, one orange accent, Geist typography, 6-point quota-left bars, hairline separators, and a compact native popover. It follows the Mac's light or dark appearance.
+Refill uses the [Otis design system](https://github.com/10-01/otis): warm paper and ink, Geist, and a compact native popover. Quota bars fill in ink. Orange appears when a window is low. It follows the Mac's light or dark appearance.
 
 ## License
 

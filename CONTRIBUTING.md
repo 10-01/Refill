@@ -28,7 +28,7 @@ Never commit real tokens, `auth.json`, Keychain exports, provider home directori
 
 ## Design changes
 
-The UI follows Otis. Read the linked design system before changing layout, type, color, or interaction patterns. Keep the popover compact and native, use one orange accent, and verify both macOS appearances.
+The UI follows Otis. Read the linked design system before changing layout, type, color, or interaction patterns. Keep the popover compact and native. Ink is the default meter fill; orange is the alarm when a window is low. Verify both macOS appearances.
 
 ## Provider changes
 

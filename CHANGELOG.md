@@ -2,6 +2,11 @@
 
 All notable changes are documented here.
 
+## Unreleased
+
+- Grouped provider modules on cool chrome, with white sheets and sentence-case window labels.
+- Quota bars fill in ink. Orange is reserved for windows that are running low.
+
 ## 1.0.1 - 2026-09-02
 
 - Renamed the app from Leftbar to Refill.

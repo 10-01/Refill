@@ -212,7 +212,7 @@ final class RefillModel: ObservableObject {
             }, fetchedAt: now)
         }
         let states: [String: UsageState] = [
-            profiles[0].id: .fresh(usage([("5 hours", 38, 4_200), ("Weekly", 32, 345_600), ("Fable", 83, 345_600)])),
+            profiles[0].id: .fresh(usage([("5 hours", 38, 4_200), ("Weekly", 32, 345_600), ("Fable", 90, 345_600)])),
             profiles[1].id: .fresh(usage([("5 hours", 9, 11_400), ("Weekly", 63, 172_800), ("Fable", 12, 172_800)])),
             profiles[2].id: .fresh(usage([("5 hours", 71, 8_100), ("Weekly", 89, 86_400), ("Fable", 100, 86_400)])),
             profiles[3].id: .fresh(usage([("5 hours", 44, 7_200), ("Weekly", 22, 518_400)])),

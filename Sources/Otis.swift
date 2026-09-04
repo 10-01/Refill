@@ -5,6 +5,9 @@
 // Fonts: bundle Geist and Geist Mono (SIL OFL) and register them in Info.plist
 // under "Fonts provided by application". Otis overrides the system look on
 // purpose; do not fall back to SF for body text.
+//
+// Accent is the alarm, not the default fill. Repeating meters use ink;
+// orange appears when a value needs attention.
 
 import SwiftUI
 import AppKit
@@ -26,12 +29,32 @@ enum Otis {
     static let ink3    = dynamic(light: "#a09e96", dark: "#6b6862")
     static let line    = dynamic(light: "#e6e3db", dark: "#2a2820")
     static let surface = dynamic(light: "#f3f1eb", dark: "#232017")
+    /// Grouped module on paper. One step past surface so panels read without a shadow.
+    static let well    = dynamic(light: "#ece8df", dark: "#2c2920")
+    /// Backdrop behind an inset workspace window, always past `surface`.
+    static let canvas  = dynamic(light: "#e3ddcd", dark: "#100f0c")
+    /// Cool field behind a sheet. Not canvas: canvas is warm and reads as linen.
+    static let chrome  = dynamic(light: "#e6e9ed", dark: "#161618")
+    /// Lifted panel on chrome. White in light so it does not sit cream on tan.
+    static let sheet   = dynamic(light: "#ffffff", dark: "#2c2920")
 
     static let accent       = Color(NSColor(hex: "#ff7a3a"))
     static let accentStrong = Color(NSColor(hex: "#f5610f"))
     /// Orange for text. The accent fails contrast on paper; this sibling passes.
     static let accentText   = dynamic(light: "#c2440a", dark: "#ff7a3a")
     static let accentSoft   = accent.opacity(0.14)
+
+    /// Fill for a repeating meter. Ink is the default. Accent is the alarm.
+    static func meterFill(attention: Bool, stale: Bool = false) -> Color {
+        if stale { return ink2 }
+        return attention ? accent : ink
+    }
+
+    /// Figures on a repeating meter. Same size at the call site; color does the work.
+    static func meterText(attention: Bool, stale: Bool = false) -> Color {
+        if stale { return ink2 }
+        return attention ? accentText : ink
+    }
 
     static let ok   = dynamic(light: "#4f8a5b", dark: "#6fae7c")
     static let warn = dynamic(light: "#b8862b", dark: "#d6a05a")
@@ -60,8 +83,9 @@ enum Otis {
     static let radius: CGFloat = 6
     static let radiusMd: CGFloat = 8
     static let radiusLg: CGFloat = 10
+    static let radiusXl: CGFloat = 16
     static let hairline: CGFloat = 1
-    static let popoverWidth: CGFloat = 320
+    static let popoverWidth: CGFloat = 336
 
     // MARK: Motion
 
