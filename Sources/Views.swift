@@ -46,8 +46,58 @@ enum UsageFormat {
     }
 }
 
+/// Counts popover opens. Each open is a navigation, and rows arrive once per navigation.
+final class PopoverPresentation: ObservableObject {
+    @Published var generation = 0
+}
+
+/// Off for proof renders, so screenshots show the end state instead of a frame mid-arrival.
+private struct OtisMotionKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var otisMotion: Bool {
+        get { self[OtisMotionKey.self] }
+        set { self[OtisMotionKey.self] = newValue }
+    }
+}
+
+/// Arrival. A row of a screen that just opened comes in 8px up and fading, over `Otis.move`,
+/// `Otis.stagger` after the row before it. Runs once per navigation, never on scroll.
+private struct Arrive: ViewModifier {
+    let index: Int
+    let generation: Int
+    @Environment(\.otisMotion) private var motion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || !animates ? 1 : 0)
+            .offset(y: shown || !animates ? 0 : 8)
+            .onAppear { arrive() }
+            .onChange(of: generation) { _ in arrive() }
+    }
+
+    private var animates: Bool { motion && generation > 0 && Otis.motionAllowed }
+
+    private func arrive() {
+        guard animates else { return }
+        shown = false
+        let delay = Otis.stagger * Double(min(index, 8))
+        withAnimation(Otis.move.delay(delay)) { shown = true }
+    }
+}
+
+extension View {
+    func arrive(index: Int, generation: Int) -> some View {
+        modifier(Arrive(index: index, generation: generation))
+    }
+}
+
 struct PopoverView: View {
     @ObservedObject var model: RefillModel
+    @ObservedObject var presentation: PopoverPresentation
     let openSettings: () -> Void
     let reauthenticate: (AccountProfile) -> Void
     let quit: () -> Void
@@ -57,13 +107,14 @@ struct PopoverView: View {
             header
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 8) {
-                    ForEach(Provider.allCases) { provider in
+                    ForEach(Array(Provider.allCases.enumerated()), id: \.element) { index, provider in
                         ProviderSection(
                             provider: provider,
                             accounts: model.accounts.filter { $0.provider == provider },
                             states: model.states,
                             reauthenticate: reauthenticate
                         )
+                        .arrive(index: index, generation: presentation.generation)
                     }
                 }
                 .padding(.horizontal, 10)
@@ -140,7 +191,7 @@ struct ProviderSection: View {
             } else {
                 ForEach(Array(accounts.enumerated()), id: \.element.id) { index, profile in
                     if index > 0 {
-                        Rectangle().fill(Otis.line).frame(height: Otis.hairline)
+                        Rectangle().fill(Otis.sheetLine).frame(height: Otis.hairline)
                             .padding(.vertical, 10)
                     }
                     AccountUsageView(
@@ -158,7 +209,7 @@ struct ProviderSection: View {
         .clipShape(RoundedRectangle(cornerRadius: Otis.radiusMd))
         .overlay(
             RoundedRectangle(cornerRadius: Otis.radiusMd)
-                .stroke(Otis.line, lineWidth: Otis.hairline)
+                .stroke(Otis.sheetLine, lineWidth: Otis.hairline)
         )
     }
 }
@@ -213,7 +264,7 @@ struct AccountUsageView: View {
                 if state?.isStale == true {
                     Text("Stale")
                         .font(Otis.mono(11))
-                        .foregroundStyle(Otis.accentText)
+                        .foregroundStyle(Otis.ink2)
                 }
                 if state?.requiresAuthentication == true {
                     Button("Reauthenticate") { reauthenticate(profile) }
@@ -229,9 +280,7 @@ struct AccountUsageView: View {
                 }
             } else {
                 HStack(spacing: 7) {
-                    Circle()
-                        .fill(stateLoading ? Otis.accent : Otis.ink2)
-                        .frame(width: 5, height: 5)
+                    LiveDot(live: stateLoading)
                     Text(stateLoading ? "Refreshing quota" : (state?.reason ?? "Waiting for first refresh"))
                         .font(Otis.sans(11))
                         .foregroundStyle(Otis.ink2)
@@ -250,16 +299,43 @@ struct AccountUsageView: View {
 
 }
 
+/// The 6px orange dot that pulses at 1.6s while data is live. The only loop Otis allows.
+struct LiveDot: View {
+    let live: Bool
+    @Environment(\.otisMotion) private var motion
+    @State private var dim = false
+
+    var body: some View {
+        Circle()
+            .fill(live ? Otis.accent : Otis.ink2)
+            .frame(width: 6, height: 6)
+            .opacity(dim ? 0.3 : 1)
+            .onAppear { pulse() }
+            .onChange(of: live) { _ in pulse() }
+    }
+
+    private func pulse() {
+        guard live, motion, Otis.motionAllowed else {
+            withAnimation(nil) { dim = false }
+            return
+        }
+        withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { dim = true }
+    }
+}
+
 struct UsageWindowView: View {
     let window: UsageWindow
     let stale: Bool
+    @Environment(\.otisMotion) private var motion
+    @State private var painted = false
 
     private var attention: Bool { !stale && window.isTight }
+    private var drawn: Bool { painted || !motion || !Otis.motionAllowed }
 
     var body: some View {
         HStack(spacing: 8) {
             Text(window.label)
-                .font(Otis.sans(12))
+                .font(Otis.working)
                 .foregroundStyle(Otis.ink2)
                 .frame(width: 62, alignment: .leading)
                 .lineLimit(1)
@@ -267,14 +343,16 @@ struct UsageWindowView: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Otis.line)
+                        .fill(Otis.sheetLine)
                     Capsule()
                         .fill(Otis.meterFill(attention: attention, stale: stale))
-                        .frame(width: max(3, proxy.size.width * CGFloat(window.remainingPercent) / 100))
+                        .frame(width: drawn ? max(3, proxy.size.width * CGFloat(window.remainingPercent) / 100) : 3)
                         .animation(Otis.bar, value: window.remainingPercent)
+                        .animation(Otis.bar, value: drawn)
                 }
             }
             .frame(height: 4)
+            .onAppear { painted = true }
 
             Text(UsageFormat.percent(window.remainingPercent))
                 .font(Otis.mono(11, weight: attention ? .medium : .regular))
@@ -361,15 +439,26 @@ struct SettingsView: View {
 
             VStack(spacing: 10) {
                 HStack(spacing: 8) {
-                    Menu("Add account") {
+                    Menu {
                         ForEach(Provider.allCases) { provider in
                             Button("Use current \(provider.title) login") { addCurrent(provider) }
                             Button("Sign in to another \(provider.title) account") { addAnother(provider) }
                         }
+                    } label: {
+                        Text("Add account")
+                            .font(Otis.sans(11, weight: .medium))
+                            .foregroundStyle(Otis.ink)
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
-                    .buttonStyle(OtisPanelButtonStyle())
+                    .padding(.horizontal, 10)
+                    .frame(height: 28)
+                    .background(Otis.surface)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Otis.radius)
+                            .stroke(Otis.line, lineWidth: 1)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: Otis.radius))
 
                     Button("Rescan T3") { rescan() }
                         .buttonStyle(OtisPanelButtonStyle())
@@ -441,14 +530,15 @@ struct OtisPanelButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Otis.sans(11, weight: .medium))
-            .foregroundStyle(Otis.ink)
+            .foregroundStyle(active ? Otis.paper : Otis.ink)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(active ? Otis.accentSoft : Otis.surface)
+            .background(active ? Otis.ink : Otis.surface)
             .overlay {
                 RoundedRectangle(cornerRadius: Otis.radius)
-                    .stroke(Otis.line, lineWidth: 1)
+                    .stroke(active ? Otis.ink : Otis.line, lineWidth: 1)
             }
+            .animation(Otis.fast, value: active)
             .clipShape(RoundedRectangle(cornerRadius: Otis.radius))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(Otis.press, value: configuration.isPressed)

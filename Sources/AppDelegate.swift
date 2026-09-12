@@ -5,6 +5,7 @@ import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = RefillModel()
+    private let presentation = PopoverPresentation()
     private let popover = NSPopover()
     private var statusItem: NSStatusItem!
     private var settingsWindow: NSWindow?
@@ -59,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentSize = NSSize(width: Otis.popoverWidth, height: 620)
         popover.contentViewController = NSHostingController(rootView: PopoverView(
             model: model,
+            presentation: presentation,
             openSettings: { [weak self] in self?.showSettings() },
             reauthenticate: { [weak self] account in self?.reauthenticate(account) },
             quit: { NSApp.terminate(nil) }
@@ -74,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let last = model.lastRefresh, Date().timeIntervalSince(last) > 30 {
             model.refreshAll()
         }
+        presentation.generation += 1
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
     }
@@ -304,6 +307,7 @@ enum ProofRenderer {
         model.states = model.states.filter { selectedIDs.contains($0.key) }
         let root = PopoverView(
             model: model,
+            presentation: PopoverPresentation(),
             openSettings: {},
             reauthenticate: { _ in },
             quit: {}
@@ -340,6 +344,7 @@ enum ProofRenderer {
         }
         let root = PopoverView(
             model: model,
+            presentation: PopoverPresentation(),
             openSettings: {},
             reauthenticate: { _ in },
             quit: {}
@@ -353,7 +358,7 @@ enum ProofRenderer {
         to path: String,
         appearance: NSAppearance.Name
     ) throws {
-        let host = NSHostingView(rootView: root)
+        let host = NSHostingView(rootView: root.environment(\.otisMotion, false))
         host.frame = NSRect(origin: .zero, size: size)
         host.appearance = NSAppearance(named: appearance)
         let window = NSWindow(

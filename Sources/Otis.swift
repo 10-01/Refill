@@ -37,6 +37,8 @@ enum Otis {
     static let chrome  = dynamic(light: "#e6e9ed", dark: "#161618")
     /// Lifted panel on chrome. White in light so it does not sit cream on tan.
     static let sheet   = dynamic(light: "#ffffff", dark: "#2c2920")
+    /// Hairline and meter track on a sheet. `line` sits under `sheet` in dark and vanishes there.
+    static let sheetLine = dynamic(light: "#e6e3db", dark: "#3d3a30")
 
     static let accent       = Color(NSColor(hex: "#ff7a3a"))
     static let accentStrong = Color(NSColor(hex: "#f5610f"))
@@ -89,9 +91,19 @@ enum Otis {
 
     // MARK: Motion
 
+    /// A state change: hover, press, toggle.
     static let fast  = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.15)
     static let press = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.06)
+    /// A screen change: push, sheet, arrival, an option opening, an illustration filling.
+    static let move  = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.24)
+    /// Gap between rows arriving. Eight rows at most take the delay, so arrival ends under 600ms.
+    static let stagger: TimeInterval = 0.04
     static let bar   = Animation.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.40)
+
+    /// Reduce motion is a system setting. Honor it: arrival and bar draw skip to their end state.
+    static var motionAllowed: Bool {
+        !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
 }
 
 extension NSColor {

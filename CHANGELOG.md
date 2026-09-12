@@ -6,6 +6,8 @@ All notable changes are documented here.
 
 - Grouped provider modules on cool chrome, with white sheets and sentence-case window labels.
 - Quota bars fill in ink. Orange is reserved for windows that are running low.
+- Provider modules arrive one after another when the popover opens, and bars draw on first paint. Both skip when Reduce Motion is on.
+- Launch at login fills in ink when it is on. A stale account is marked in amber, not orange.
 
 ## 1.0.1 - 2026-09-02
 
