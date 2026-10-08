@@ -178,30 +178,39 @@ enum UsageAPI {
             with: "",
             options: .regularExpression
         )
-        guard let range = stripped.range(
-            of: #"Weekly limit[^%]{0,240}([0-9]+(?:\.[0-9]+)?)%"#,
-            options: .regularExpression
-        ) else { return nil }
-        let match = String(stripped[range])
-        guard let percentRange = match.range(
-            of: #"([0-9]+(?:\.[0-9]+)?)%"#,
-            options: [.regularExpression, .backwards]
-        ),
-              let value = Double(match[percentRange].dropLast())
+        // Only accept the used-quota summary/dialog. The startup warning says
+        // "Weekly limit left: 0%", which means exhausted, not unused. Ignoring
+        // it also lets fetchGrok continue requesting /usage for the reset time.
+        // Box drawing and block characters appear between the dialog label
+        // and percentage after cursor-position escape sequences are stripped.
+        let pattern = #"Weekly limit(?:[ \t]*\([^\r\n)]{0,120}\))?[\s:\x{2500}-\x{259F}]{0,240}([0-9]+(?:\.[0-9]+)?)%"#
+        guard let expression = try? NSRegularExpression(pattern: pattern),
+              let match = expression.matches(
+                in: stripped,
+                range: NSRange(stripped.startIndex..., in: stripped)
+              ).last,
+              let percentRange = Range(match.range(at: 1), in: stripped),
+              let value = Double(stripped[percentRange]),
+              let matchRange = Range(match.range, in: stripped)
         else { return nil }
         let percent = value
 
+        // Terminal output accumulates repaints; pair the latest percentage
+        // with the reset printed after it, rather than an earlier screen.
+        let resetText = String(stripped[matchRange.upperBound...])
         var reset: Date?
-        if let resetRange = stripped.range(
+        if let resetRange = resetText.range(
             of: #"(?:Next reset|Resets):\s*[A-Za-z]+\s+[0-9]{1,2},\s*[0-9]{2}:[0-9]{2}"#,
             options: .regularExpression
         ) {
-            let value = String(stripped[resetRange])
+            let value = String(resetText[resetRange])
                 .replacingOccurrences(of: "Next reset:", with: "")
                 .replacingOccurrences(of: "Resets:", with: "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
+            // Grok formats this wall-clock time in the local time zone.
+            formatter.timeZone = .current
             formatter.dateFormat = "MMMM d, HH:mm"
             if let partial = formatter.date(from: value) {
                 let calendar = Calendar.current

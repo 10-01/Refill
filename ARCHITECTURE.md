@@ -24,7 +24,7 @@ Refill starts one local `codex app-server --stdio` process per account, complete
 
 ### Grok
 
-The Grok CLI does not expose an equivalent machine-readable command. Refill runs its terminal UI in a pseudo-terminal, answers the cursor-position query, requests `/usage`, strips ANSI control sequences, and parses the English weekly-limit view. A single cancelable timer handles startup retries and a short fallback when the reset line is absent. This is the most fragile adapter and should be tested against each supported Grok CLI update.
+The Grok CLI does not expose an equivalent machine-readable command. Refill runs its terminal UI in a pseudo-terminal, answers the cursor-position query, requests `/usage`, strips ANSI control sequences, and parses the English weekly-limit view. It reads used quota from the summary or dialog and ignores the startup warning such as `Weekly limit left: 0%`, which reports remaining quota. When the terminal repaints, the latest usage value and its following reset line win. Grok's reset text is a local wall-clock time. A single cancelable timer handles startup retries and a short fallback when the reset line is absent. This is the most fragile adapter and should be tested against each supported Grok CLI update.
 
 ## Refresh policy
 

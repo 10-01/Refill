@@ -66,6 +66,31 @@ let paintedGrok = "Weekly limit (SuperGrok Heavy)\u{001B}[8;57H5%\u{001B}[9;25H\
 expect(UsageAPI.parseGrokTerminal(paintedGrok)?.windows.first?.resetsAt != nil,
        "Grok cursor-painted reset time should parse")
 
+let exhaustedGrokWarning = "Weekly limit left: 0% · 1.4K/256K"
+expect(UsageAPI.parseGrokTerminal(exhaustedGrokWarning) == nil,
+       "Grok's remaining-quota warning must not be mistaken for used quota or stop the usage request")
+expect(UsageAPI.parseGrokTerminal("Weekly limit left: 8%") == nil,
+       "Partially remaining Grok quota must not be mistaken for used quota")
+
+let exhaustedGrok = exhaustedGrokWarning
+    + "\u{001B}[8;25HWeekly limit (SuperGrok Heavy)││"
+    + "\u{001B}[9;25H██████████████████████████████100%││"
+    + "\u{001B}[10;25HResets: September 7, 14:30"
+expect(UsageAPI.parseGrokTerminal(exhaustedGrok)?.windows.first?.remainingPercent == 0,
+       "An exhausted Grok usage dialog after a startup warning must show zero left")
+expect(UsageAPI.parseGrokTerminal(exhaustedGrok)?.windows.first?.resetsAt != nil,
+       "The exhausted Grok dialog should retain its reset time")
+
+let repaintedGrok = "Weekly limit: 5%\nNext reset: September 6, 12:00\n"
+    + "Weekly limit: 100%\nNext reset: September 7, 14:30\n"
+let latestGrok = UsageAPI.parseGrokTerminal(repaintedGrok)
+expect(latestGrok?.windows.first?.remainingPercent == 0,
+       "Grok terminal repaints should use the latest usage value")
+expect(latestGrok?.windows.first?.resetsAt == grokUsage?.windows.first?.resetsAt,
+       "Grok's reset time must come from the same repaint as its usage value")
+expect(UsageAPI.parseGrokTerminal("Weekly limit: loading\nContext usage: 25%") == nil,
+       "An incomplete Grok limit must not consume an unrelated percentage")
+
 let tight = UsageWindow(
     label: "Weekly",
     shortLabel: "W",
