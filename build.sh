@@ -38,6 +38,7 @@ compile_binary() {
     -framework SwiftUI \
     -framework ServiceManagement \
     -framework CoreText \
+    -framework LocalAuthentication \
     "$repo_dir"/Sources/*.swift \
     -o "$output"
 }

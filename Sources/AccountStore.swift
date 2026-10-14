@@ -1,6 +1,8 @@
 import CryptoKit
 import Darwin
 import Foundation
+import LocalAuthentication
+import Security
 
 enum AccountStore {
     private static let applicationSupportRoot = FileManager.default.homeDirectoryForCurrentUser
@@ -427,7 +429,7 @@ enum AccountStore {
         return museKeychainAccessToken()
     }
 
-    private static func museCredentialPresent(_ profile: AccountProfile) -> Bool {
+    static func museCredentialPresent(_ profile: AccountProfile) -> Bool {
         if museFileAccessToken(profile) != nil { return true }
         let storage = museAuthStorage(profile)
         guard storage == "keychain" || (storage == nil && profile.homePath == nil) else { return false }
@@ -456,29 +458,40 @@ enum AccountStore {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    private static func museKeychainQuery(returnData: Bool, allowPrompt: Bool) -> [String: Any] {
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "ai.meta.dev.credentials",
+            kSecAttrAccount as String: "meta",
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        if returnData { query[kSecReturnData as String] = true }
+        if !allowPrompt {
+            let context = LAContext()
+            context.interactionNotAllowed = true
+            query[kSecUseAuthenticationContext as String] = context
+        }
+        return query
+    }
+
     private static func museKeychainItemExists() -> Bool {
-        let result = run(
-            "/usr/bin/security",
-            ["find-generic-password", "-a", "meta", "-s", "ai.meta.dev.credentials"],
-            timeout: 8
-        )
-        return result.status == 0
+        let status = SecItemCopyMatching(museKeychainQuery(returnData: false, allowPrompt: false) as CFDictionary, nil)
+        return status == errSecSuccess || status == errSecInteractionNotAllowed
     }
 
     private static func museKeychainAccessToken() -> String? {
-        let result = run(
-            "/usr/bin/security",
-            ["find-generic-password", "-w", "-a", "meta", "-s", "ai.meta.dev.credentials"],
-            timeout: 8
-        )
-        guard result.status == 0 else { return nil }
-        let raw = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let data = raw.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let token = json["access_token"] as? String
-        else { return nil }
-        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
+        let read = {
+            var item: CFTypeRef?
+            let status = SecItemCopyMatching(museKeychainQuery(returnData: true, allowPrompt: true) as CFDictionary, &item)
+            guard status == errSecSuccess, let data = item as? Data else { return nil as String? }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let token = json["access_token"] as? String
+            else { return nil }
+            let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        if Thread.isMainThread { return read() }
+        return DispatchQueue.main.sync(execute: read)
     }
 
     @discardableResult
@@ -537,6 +550,9 @@ enum ProviderClient {
 
     private static func fetchMuse(_ profile: AccountProfile) -> (ProviderUsage?, String) {
         guard let token = AccountStore.museAccessToken(for: profile) else {
+            if AccountStore.museCredentialPresent(profile) {
+                return (nil, "Allow Keychain access for Muse")
+            }
             return (nil, "Sign in to refresh")
         }
         return UsageAPI.fetchMuse(token: token)

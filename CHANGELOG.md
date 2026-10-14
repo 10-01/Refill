@@ -4,7 +4,7 @@ All notable changes are documented here.
 
 ## Unreleased
 
-- Added Muse Code quota. Refill shows the five-hour and weekly windows from the local Muse login.
+- Added Muse Code quota. Refill shows the five-hour and weekly windows from the local Muse login. macOS prompts once so Refill can read that login from Keychain.
 - Grouped provider modules on cool chrome, with white sheets and sentence-case window labels.
 - Quota bars fill in ink. Orange is reserved for windows that are running low.
 - Provider modules arrive one after another when the popover opens, and bars draw on first paint. Both skip when Reduce Motion is on.

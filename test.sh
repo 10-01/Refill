@@ -8,6 +8,7 @@ xcrun swiftc \
   -target "$(/usr/bin/uname -m)-apple-macosx13.0" \
   -swift-version 5 \
   -framework AppKit \
+  -framework LocalAuthentication \
   "$repo_dir/Sources/Models.swift" \
   "$repo_dir/Sources/UsageAPI.swift" \
   "$repo_dir/Sources/AccountStore.swift" \

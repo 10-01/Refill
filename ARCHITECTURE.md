@@ -28,7 +28,7 @@ The Grok CLI does not expose an equivalent machine-readable command. Refill runs
 
 ### Muse
 
-Refill reads the Muse Code OAuth token for each home. On macOS the default login keeps that token in the Keychain item `ai.meta.dev.credentials` / `meta`, which `~/.config/muse/auth.json` points at with `storage: "keychain"`. An `access_token` written into a home's `auth.json` is used instead when present. Refill then sends the same request Muse Code sends at startup, `POST https://api.meta.ai/muse-code/key` with `{"onboard": false}` and `x-api-version: 1.0.0`. The `subs_usage.window` and `subs_usage.weekly` objects become the five-hour and weekly rows. The response also returns an API key. Refill drops that field before it builds the quota model and does not store it. The endpoint is rate-limited, so a 429 keeps the previous reading and marks it stale.
+Refill reads the Muse Code OAuth token for each home. On macOS the default login keeps that token in the Keychain item `ai.meta.dev.credentials` / `meta`, which `~/.config/muse/auth.json` points at with `storage: "keychain"`. Refill asks the Security framework for that item, so macOS can prompt once to allow Refill. An `access_token` written into a home's `auth.json` is used instead when present. Refill then sends the same request Muse Code sends at startup, `POST https://api.meta.ai/muse-code/key` with `{"onboard": false}` and `x-api-version: 1.0.0`. The `subs_usage.window` and `subs_usage.weekly` objects become the five-hour and weekly rows. The response also returns an API key. Refill drops that field before it builds the quota model and does not store it. The endpoint is rate-limited, so a 429 keeps the previous reading and marks it stale.
 
 ## Refresh policy
 
