@@ -1,6 +1,6 @@
 # Refill
 
-Refill shows what's left and when it resets across every Claude, Codex, and Grok account in one native Mac menu.
+Refill shows what's left and when it resets across every Claude, Codex, Grok, and Muse account in one native Mac menu.
 
 ![Refill shows every connected AI quota in one menu](Media/hero.png)
 
@@ -18,9 +18,9 @@ Claude's session, weekly, and model-scoped limits appear separately. That includ
 
 - macOS 13 Ventura or newer
 - Apple Command Line Tools for a source install
-- A signed-in Claude, Codex, or Grok CLI account
+- A signed-in Claude, Codex, Grok, or Muse Code CLI account
 
-Refill can discover Claude and Codex accounts configured in T3. You can also add the current CLI login or create an isolated login from Settings.
+Refill can discover Claude, Codex, and Muse accounts configured in T3. You can also add the current CLI login or create an isolated login from Settings.
 
 ## Install
 
@@ -54,10 +54,11 @@ The source install is the supported public path until downloadable builds are si
 - Claude reads the Claude Code credential for each configured home from macOS Keychain, then requests its session, weekly, and model-scoped usage. Fable appears as its own limit when Anthropic returns it for that account.
 - Codex starts the local `codex app-server` and calls `account/rateLimits/read` for each Codex home.
 - Grok starts the local Grok CLI in an isolated terminal session and parses its `/usage` view.
+- Muse reads the Muse Code login from macOS Keychain, or from that home's `auth.json` when the token is stored there, then requests the five-hour and weekly subscription windows. The API key returned with that response is discarded.
 
 The status-bar number is the quota left on the tightest window. Each row shows quota left and the reset countdown. If a login expires, use **Reauthenticate** beside that account. Refill opens the matching CLI login in Terminal and preserves the account's isolated home.
 
-These provider interfaces are not a shared public quota standard. A provider update can require an adapter or parser change. Refill is not affiliated with Anthropic, OpenAI, or xAI.
+These provider interfaces are not a shared public quota standard. A provider update can require an adapter or parser change. Refill is not affiliated with Anthropic, OpenAI, xAI, or Meta.
 
 ## Privacy and local data
 

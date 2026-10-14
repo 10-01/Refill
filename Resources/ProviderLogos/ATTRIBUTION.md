@@ -1,10 +1,11 @@
 # Provider logo attribution
 
-The Claude, Codex, and Grok marks identify the services Refill reads. Their owners retain all trademark rights. Their appearance does not imply sponsorship or endorsement.
+The Claude, Codex, Grok, and Muse marks identify the services Refill reads. Their owners retain all trademark rights. Their appearance does not imply sponsorship or endorsement.
 
 - Claude mark: Anthropic. SVG distributed by `@thesvg/icons` under CC0 1.0. Source: https://claude.ai
 - Codex mark: OpenAI. Used under OpenAI's brand-use terms. Source: https://openai.com/codex/
 - Grok mark: SpaceXAI. SVG distributed by `@thesvg/icons` under the MIT License. Source: https://grok.com
+- Muse mark: an original letter drawn for Refill. It is not Meta's Muse logo. Meta retains the Muse name and its own marks.
 
 The MIT License for the Grok SVG follows.
 

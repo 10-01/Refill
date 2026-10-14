@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         modelObserver = model.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async { self?.updateStatusItem() }
         }
+        model.adoptMuseAccountIfNeeded()
         updateStatusItem()
         model.refreshAll()
 

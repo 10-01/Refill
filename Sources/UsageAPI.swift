@@ -128,6 +128,107 @@ enum UsageAPI {
         return windows.isEmpty ? nil : ProviderUsage(windows: windows, fetchedAt: fetchedAt)
     }
 
+    static func fetchMuse(token: String) -> (ProviderUsage?, String) {
+        let (data, status, error) = post(
+            "https://api.meta.ai/muse-code/key",
+            token: token,
+            headers: [
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "x-api-version": "1.0.0",
+            ],
+            body: Data("{\"onboard\":false}".utf8)
+        )
+        if status == 401 || status == 403 { return (nil, "Sign in again") }
+        if status == 429 { return (nil, "Muse quota is busy, try again shortly") }
+        if let error, data == nil { return (nil, error) }
+        guard status == 200,
+              let data,
+              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return (nil, status == 0 ? "Offline" : "Service returned \(status)") }
+
+        if json["is_subs_active"] as? Bool == false {
+            return (nil, "Muse subscription is inactive")
+        }
+        // Keep only the quota fields. The response also carries an API key.
+        let quota: [String: Any] = [
+            "is_subs_active": json["is_subs_active"] as Any,
+            "subs_usage": json["subs_usage"] as Any,
+        ]
+        guard let usage = parseMuseUsage(quota) else { return (nil, "No quota windows returned") }
+        return (usage, "")
+    }
+
+    static func parseMuseUsage(_ json: [String: Any], fetchedAt: Date = Date()) -> ProviderUsage? {
+        if json["is_subs_active"] as? Bool == false { return nil }
+        guard let usage = json["subs_usage"] as? [String: Any] else { return nil }
+
+        let windows = [
+            museWindow(usage["window"], weekly: false),
+            museWindow(usage["weekly"], weekly: true),
+        ].compactMap { $0 }.sorted { ($0.durationMinutes ?? 0) < ($1.durationMinutes ?? 0) }
+
+        return windows.isEmpty ? nil : ProviderUsage(windows: windows, fetchedAt: fetchedAt)
+    }
+
+    private static func museWindow(_ value: Any?, weekly: Bool) -> UsageWindow? {
+        guard let value = value as? [String: Any],
+              let percent = (value["used_percent"] as? NSNumber)?.doubleValue,
+              percent.isFinite,
+              percent >= 0
+        else { return nil }
+
+        let label: String
+        let shortLabel: String
+        let minutes: Int
+        if weekly {
+            label = "Weekly"
+            shortLabel = "W"
+            minutes = 10_080
+        } else if let duration = (value["window_duration_mins"] as? NSNumber)?.intValue, duration > 0 {
+            let labels = windowLabel(minutes: duration)
+            label = labels.0
+            shortLabel = labels.1
+            minutes = duration
+        } else {
+            label = "5 hours"
+            shortLabel = "5h"
+            minutes = 300
+        }
+
+        return UsageWindow(
+            label: label,
+            shortLabel: shortLabel,
+            usedPercent: max(0, min(100, percent)),
+            resetsAt: parseDate(value["resets_at"]),
+            durationMinutes: minutes
+        )
+    }
+
+    private static func post(
+        _ urlString: String,
+        token: String,
+        headers: [String: String] = [:],
+        body: Data
+    ) -> (Data?, Int, String?) {
+        guard let url = URL(string: urlString) else { return (nil, 0, "Invalid endpoint") }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        request.timeoutInterval = 12
+
+        var result: (Data?, Int, String?) = (nil, 0, "Timed out")
+        let semaphore = DispatchSemaphore(value: 0)
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            result = (data, (response as? HTTPURLResponse)?.statusCode ?? 0, error?.localizedDescription)
+            semaphore.signal()
+        }.resume()
+        _ = semaphore.wait(timeout: .now() + 15)
+        return result
+    }
+
     static func windowLabel(minutes: Int) -> (String, String) {
         if minutes == 300 { return ("5 hours", "5h") }
         if minutes == 10_080 { return ("Weekly", "W") }

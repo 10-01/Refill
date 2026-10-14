@@ -10,7 +10,7 @@ if [[ ! -x "$binary" ]]; then
   exit 1
 fi
 
-for provider in claude codex grok; do
+for provider in claude codex grok muse; do
   if [[ ! -f "$app_dir/Contents/Resources/ProviderLogos/$provider.svg" ]]; then
     echo "The $provider provider logo is missing from the app bundle." >&2
     exit 1

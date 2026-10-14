@@ -4,6 +4,7 @@ enum Provider: String, Codable, CaseIterable, Identifiable {
     case claude
     case codex
     case grok
+    case muse
 
     var id: String { rawValue }
 
@@ -12,6 +13,7 @@ enum Provider: String, Codable, CaseIterable, Identifiable {
         case .claude: return "Claude"
         case .codex: return "Codex"
         case .grok: return "Grok"
+        case .muse: return "Muse"
         }
     }
 
@@ -20,6 +22,7 @@ enum Provider: String, Codable, CaseIterable, Identifiable {
         case .claude: return "C"
         case .codex: return "O"
         case .grok: return "X"
+        case .muse: return "M"
         }
     }
 
@@ -30,6 +33,7 @@ enum Provider: String, Codable, CaseIterable, Identifiable {
         case .claude: return "CLAUDE_CONFIG_DIR"
         case .codex: return "CODEX_HOME"
         case .grok: return "GROK_HOME"
+        case .muse: return "XDG_CONFIG_HOME"
         }
     }
 

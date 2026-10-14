@@ -9,8 +9,8 @@ Do not write `ReFill`, `Re-fill`, or `Quota` as the product name. Quota remains 
 ## Copy
 
 - Headline: `Know what's left. Know when it refills.`
-- Description: `Refill shows what's left and when it resets across Claude, Codex, and Grok accounts from the Mac menu bar.`
-- Repository description: `Track Claude, Codex, and Grok quota from the Mac menu bar.`
+- Description: `Refill shows what's left and when it resets across Claude, Codex, Grok, and Muse accounts from the Mac menu bar.`
+- Repository description: `Track Claude, Codex, Grok, and Muse quota from the Mac menu bar.`
 
 ## Mark
 

@@ -4,4 +4,4 @@ Refill's provider parsing and CLI integration began from Usage Bar by John Kueh,
 
 Geist and Geist Mono are distributed under the SIL Open Font License. The complete font license is bundled at `Resources/Fonts/OFL.txt` and inside the app.
 
-Claude, Codex, and Grok logos identify their respective services and remain trademarks of their owners. Source and license details are in `Resources/ProviderLogos/ATTRIBUTION.md` and inside the app.
+Claude, Codex, Grok, and Muse logos identify their respective services. Third-party marks remain trademarks of their owners. The Muse letter mark in this repository is original. Source and license details are in `Resources/ProviderLogos/ATTRIBUTION.md` and inside the app.

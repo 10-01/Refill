@@ -90,6 +90,20 @@ final class RefillModel: ObservableObject {
         refreshAll()
     }
 
+    func adoptMuseAccountIfNeeded() {
+        let key = "did-adopt-muse-account"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        if accounts.contains(where: { $0.provider == .muse }) {
+            UserDefaults.standard.set(true, forKey: key)
+            return
+        }
+        guard let profiles = try? AccountStore.includeDiscoveredMuse() else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        guard profiles.contains(where: { $0.provider == .muse }) else { return }
+        accounts = profiles
+        hydrateCachedStates()
+    }
+
     func remove(_ profile: AccountProfile) throws {
         accounts = try AccountStore.remove(profile)
         states.removeValue(forKey: profile.id)

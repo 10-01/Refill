@@ -73,6 +73,18 @@ enum AccountStore {
         return result
     }
 
+    static func includeDiscoveredMuse() throws -> [AccountProfile] {
+        var merged = Dictionary(uniqueKeysWithValues: accounts().map { ($0.id, $0) })
+        var changed = false
+        for profile in discoverAccounts() where profile.provider == .muse && merged[profile.id] == nil {
+            merged[profile.id] = profile
+            changed = true
+        }
+        let result = sort(Array(merged.values))
+        if changed { try save(result) }
+        return result
+    }
+
     static func remove(_ profile: AccountProfile) throws -> [AccountProfile] {
         let result = accounts().filter { $0.id != profile.id }
         try save(result)
@@ -104,10 +116,13 @@ enum AccountStore {
 
     static func addIsolated(_ provider: Provider, name: String) throws -> (AccountProfile, [AccountProfile]) {
         let identifier = UUID().uuidString.lowercased()
-        let home = applicationSupport
+        var home = applicationSupport
             .appendingPathComponent("Providers", isDirectory: true)
             .appendingPathComponent(provider.rawValue, isDirectory: true)
             .appendingPathComponent(identifier, isDirectory: true)
+        if provider == .muse {
+            home = home.appendingPathComponent("muse", isDirectory: true)
+        }
         try FileManager.default.createDirectory(
             at: home,
             withIntermediateDirectories: true,
@@ -160,6 +175,18 @@ enum AccountStore {
                 source: "local"
             ))
         }
+        if !profiles.contains(where: { $0.provider == .muse && $0.homePath == nil }),
+           museCredentialPresent(AccountProfile(
+               id: "probe", provider: .muse, name: "Muse", homePath: nil, source: "local"
+           )) {
+            profiles.append(AccountProfile(
+                id: stableID(provider: .muse, path: nil),
+                provider: .muse,
+                name: "Muse",
+                homePath: nil,
+                source: "local"
+            ))
+        }
 
         var unique: [String: AccountProfile] = [:]
         profiles.forEach { unique[$0.id] = $0 }
@@ -183,6 +210,7 @@ enum AccountStore {
             switch driver {
             case "claudeAgent": provider = .claude
             case "codex": provider = .codex
+            case "muse": provider = .muse
             default: continue
             }
             if let enabled = value["enabled"] as? Bool, !enabled { continue }
@@ -255,6 +283,14 @@ enum AccountStore {
         case .claude: return home.appendingPathComponent(".claude")
         case .codex: return home.appendingPathComponent(".codex")
         case .grok: return home.appendingPathComponent(".grok")
+        case .muse:
+            if let config = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+               !config.isEmpty {
+                return URL(fileURLWithPath: expandTilde(config), isDirectory: true)
+                    .appendingPathComponent("muse", isDirectory: true)
+            }
+            return home.appendingPathComponent(".config/muse", isDirectory: true)
         }
     }
 
@@ -281,6 +317,8 @@ enum AccountStore {
             return value["loggedIn"] as? Bool == true
         case .codex, .grok:
             return fileExists(provider: profile.provider, homePath: profile.homePath, name: "auth.json")
+        case .muse:
+            return museCredentialPresent(profile)
         }
     }
 
@@ -298,6 +336,8 @@ enum AccountStore {
             ]
         case "grok":
             candidates = ["\(home)/.grok/bin/grok", "\(home)/.local/bin/grok", "/opt/homebrew/bin/grok"]
+        case "muse":
+            candidates = ["\(home)/.local/bin/muse", "/opt/homebrew/bin/muse", "/usr/local/bin/muse"]
         default:
             candidates = []
         }
@@ -308,11 +348,19 @@ enum AccountStore {
         var environment = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         environment["PATH"] = "\(home)/.local/bin:\(home)/.grok/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-        let variable = profile.provider.homeVariable
-        if let path = profile.homePath {
-            environment[variable] = path
+        if profile.provider == .muse {
+            if let path = profile.homePath {
+                environment["XDG_CONFIG_HOME"] = URL(fileURLWithPath: path).deletingLastPathComponent().path
+            } else {
+                environment.removeValue(forKey: "XDG_CONFIG_HOME")
+            }
         } else {
-            environment.removeValue(forKey: variable)
+            let variable = profile.provider.homeVariable
+            if let path = profile.homePath {
+                environment[variable] = path
+            } else {
+                environment.removeValue(forKey: variable)
+            }
         }
         environment["TERM"] = "xterm-256color"
         return environment
@@ -322,10 +370,21 @@ enum AccountStore {
         func quoted(_ value: String) -> String {
             "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
         }
+        if profile.provider == .muse {
+            let environment: String
+            if let home = profile.homePath {
+                let parent = URL(fileURLWithPath: home).deletingLastPathComponent().path
+                environment = "env XDG_CONFIG_HOME=\(quoted(parent))"
+            } else {
+                environment = "env -u XDG_CONFIG_HOME"
+            }
+            return "\(environment) \(quoted(executable)) login"
+        }
         let arguments: String
         switch profile.provider {
         case .claude: arguments = "auth login"
         case .codex, .grok: arguments = "login"
+        case .muse: arguments = "login"
         }
         let environment: String
         if let home = profile.homePath {
@@ -359,6 +418,67 @@ enum AccountStore {
               !token.isEmpty
         else { return nil }
         return token
+    }
+
+    static func museAccessToken(for profile: AccountProfile) -> String? {
+        if let token = museFileAccessToken(profile) { return token }
+        let storage = museAuthStorage(profile)
+        guard storage == "keychain" || (storage == nil && profile.homePath == nil) else { return nil }
+        return museKeychainAccessToken()
+    }
+
+    private static func museCredentialPresent(_ profile: AccountProfile) -> Bool {
+        if museFileAccessToken(profile) != nil { return true }
+        let storage = museAuthStorage(profile)
+        guard storage == "keychain" || (storage == nil && profile.homePath == nil) else { return false }
+        return museKeychainItemExists()
+    }
+
+    private static func museAuthStorage(_ profile: AccountProfile) -> String? {
+        let url = effectiveHome(profile).appendingPathComponent("auth.json")
+        guard let data = try? Data(contentsOf: url),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providers = root["providers"] as? [String: Any],
+              let meta = providers["meta"] as? [String: Any]
+        else { return nil }
+        return meta["storage"] as? String
+    }
+
+    private static func museFileAccessToken(_ profile: AccountProfile) -> String? {
+        let url = effectiveHome(profile).appendingPathComponent("auth.json")
+        guard let data = try? Data(contentsOf: url),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providers = root["providers"] as? [String: Any],
+              let meta = providers["meta"] as? [String: Any],
+              let token = meta["access_token"] as? String
+        else { return nil }
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func museKeychainItemExists() -> Bool {
+        let result = run(
+            "/usr/bin/security",
+            ["find-generic-password", "-a", "meta", "-s", "ai.meta.dev.credentials"],
+            timeout: 8
+        )
+        return result.status == 0
+    }
+
+    private static func museKeychainAccessToken() -> String? {
+        let result = run(
+            "/usr/bin/security",
+            ["find-generic-password", "-w", "-a", "meta", "-s", "ai.meta.dev.credentials"],
+            timeout: 8
+        )
+        guard result.status == 0 else { return nil }
+        let raw = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = raw.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let token = json["access_token"] as? String
+        else { return nil }
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     @discardableResult
@@ -404,6 +524,7 @@ enum ProviderClient {
         case .claude: return fetchClaude(profile)
         case .codex: return fetchCodex(profile)
         case .grok: return fetchGrok(profile)
+        case .muse: return fetchMuse(profile)
         }
     }
 
@@ -412,6 +533,13 @@ enum ProviderClient {
             return (nil, "Sign in to refresh")
         }
         return UsageAPI.fetchClaude(token: token)
+    }
+
+    private static func fetchMuse(_ profile: AccountProfile) -> (ProviderUsage?, String) {
+        guard let token = AccountStore.museAccessToken(for: profile) else {
+            return (nil, "Sign in to refresh")
+        }
+        return UsageAPI.fetchMuse(token: token)
     }
 
     static func fetchCodex(_ profile: AccountProfile, executable override: String? = nil) -> (ProviderUsage?, String) {

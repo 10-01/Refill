@@ -91,6 +91,29 @@ expect(latestGrok?.windows.first?.resetsAt == grokUsage?.windows.first?.resetsAt
 expect(UsageAPI.parseGrokTerminal("Weekly limit: loading\nContext usage: 25%") == nil,
        "An incomplete Grok limit must not consume an unrelated percentage")
 
+let muse: [String: Any] = [
+    "api_key": "not-a-quota-field",
+    "is_subs_active": true,
+    "subs_usage": [
+        "window": ["used_percent": 12.5, "resets_at": 1_800_000_000, "window_duration_mins": 300],
+        "weekly": ["used_percent": 40, "resets_at": 1_800_500_000],
+    ],
+]
+let museUsage = UsageAPI.parseMuseUsage(muse)
+expect(museUsage?.windows.count == 2, "Muse should expose the rolling and weekly windows")
+expect(museUsage?.windows.first?.label == "5 hours", "A 300-minute Muse window should be labeled 5 hours")
+expect(museUsage?.windows.first?.remainingPercent == 87.5, "Muse remaining quota should be derived from used percent")
+expect(museUsage?.windows.first?.resetsAt != nil, "Muse should keep the rolling window reset time")
+expect(museUsage?.windows.last?.label == "Weekly", "Muse weekly usage should be labeled Weekly")
+expect(museUsage?.windows.last?.remainingPercent == 60, "Muse weekly remaining quota should be derived")
+expect(UsageAPI.parseMuseUsage([
+    "is_subs_active": false,
+    "subs_usage": ["weekly": ["used_percent": 10]],
+]) == nil, "An inactive Muse subscription should not publish windows")
+expect(UsageAPI.parseMuseUsage([
+    "subs_usage": ["window": ["window_duration_mins": 300]],
+]) == nil, "A Muse window without a used percent should be ignored")
+
 let tight = UsageWindow(
     label: "Weekly",
     shortLabel: "W",
@@ -133,6 +156,28 @@ let customClaude = AccountProfile(
 expect(AccountStore.signInCommand(for: customClaude, executable: "/usr/local/bin/claude")
     == "env CLAUDE_CONFIG_DIR='/tmp/Claude Home' '/usr/local/bin/claude' auth login",
     "Custom Claude reauthentication should preserve its isolated home")
+
+let defaultMuse = AccountProfile(
+    id: "muse:test",
+    provider: .muse,
+    name: "Muse",
+    homePath: nil,
+    source: "test"
+)
+expect(AccountStore.signInCommand(for: defaultMuse, executable: "/usr/local/bin/muse")
+    == "env -u XDG_CONFIG_HOME '/usr/local/bin/muse' login",
+    "Default Muse reauthentication should unset XDG_CONFIG_HOME and run login")
+
+let isolatedMuse = AccountProfile(
+    id: "muse:isolated",
+    provider: .muse,
+    name: "Muse work",
+    homePath: "/tmp/muse-home/muse",
+    source: "test"
+)
+expect(AccountStore.signInCommand(for: isolatedMuse, executable: "/usr/local/bin/muse")
+    == "env XDG_CONFIG_HOME='/tmp/muse-home' '/usr/local/bin/muse' login",
+    "Isolated Muse reauthentication should point XDG_CONFIG_HOME at the parent of its config directory")
 
 let timeoutStarted = Date()
 let timeoutResult = AccountStore.run("/bin/sleep", ["5"], timeout: 0.05)
